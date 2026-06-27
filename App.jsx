@@ -169,7 +169,6 @@ export default function App() {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoiceData, setInvoiceData] = useState({ nama: "", syarikat: "", tel: "", alamat: "", nota: "" });
   const [invNo] = useState(getInvNo());
-  const [downloading, setDownloading] = useState(false);
   const invoiceRef = useRef(null);
 
   const filtered = activeCategory === "Semua" ? MENU : MENU.filter(i => i.category === activeCategory);
@@ -194,25 +193,13 @@ export default function App() {
 
   const clearOrder = () => { setOrder({}); setPaid(""); setShowReceipt(false); setShowInvoicePreview(false); setShowInvoiceForm(false); };
 
-  const downloadPDF = async () => {
-    setDownloading(true);
-    try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js"),
-        import("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.es.min.js"),
-      ]);
-      const el = invoiceRef.current;
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = (canvas.height * pdfW) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
-      pdf.save(`${invNo}-${invoiceData.nama.replace(/\s+/g, "_")}.pdf`);
-    } catch (e) {
-      alert("Gagal generate PDF. Cuba semula.");
-    }
-    setDownloading(false);
+  const downloadPDF = () => {
+    const el = invoiceRef.current;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${invNo} - ${invoiceData.nama}</title><style>body{margin:0;padding:20px;font-family:Arial,sans-serif;}table{border-collapse:collapse;width:100%;}@media print{body{padding:0;}@page{margin:15mm;}}</style></head><body>${el.innerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 600);
   };
 
   const orderItems = Object.values(order);
@@ -464,7 +451,7 @@ export default function App() {
               { label: "Nama Customer *", key: "nama", placeholder: "Contoh: Ahmad bin Ali" },
               { label: "Syarikat / Organisasi", key: "syarikat", placeholder: "Contoh: Syarikat ABC Sdn Bhd" },
               { label: "No. Telefon", key: "tel", placeholder: "Contoh: 0123456789" },
-              { label: "Alamat", key: "alamat", placeholder: "Alamat penuh customer" },
+
               { label: "Nota / Rujukan", key: "nota", placeholder: "Contoh: Catering Majlis 5 Jun" },
             ].map(f => (
               <div key={f.key} style={{ marginBottom: 10 }}>
@@ -504,8 +491,8 @@ export default function App() {
             {/* Action bar */}
             <div style={{ background: "#1a1815", padding: "10px 16px", display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ color: "#8a7f6e", fontSize: 11, flex: 1, fontFamily: "monospace" }}>Preview Invoice · {invNo}</span>
-              <button onClick={downloadPDF} disabled={downloading} style={{ padding: "7px 16px", background: downloading ? "#a07820" : "#e8b84b", border: "none", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: downloading ? "wait" : "pointer", fontFamily: "monospace" }}>
-                {downloading ? "⏳ Generating..." : "⬇️ DOWNLOAD PDF"}
+              <button onClick={downloadPDF} style={{ padding: "7px 16px", background: "#e8b84b", border: "none", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "monospace" }}>
+                🖨️ PRINT / SAVE PDF
               </button>
               <button onClick={() => setShowInvoicePreview(false)} style={{ padding: "7px 12px", background: "#2a2720", border: "none", color: "#f0ebe0", borderRadius: 5, fontSize: 11, cursor: "pointer", fontFamily: "monospace" }}>✕</button>
             </div>
@@ -537,7 +524,6 @@ export default function App() {
                 <div style={{ fontSize: 13, fontWeight: 700 }}>{invoiceData.nama}</div>
                 {invoiceData.syarikat && <div style={{ fontSize: 12, color: "#333" }}>{invoiceData.syarikat}</div>}
                 {invoiceData.tel && <div style={{ fontSize: 11, color: "#555" }}>Tel: {invoiceData.tel}</div>}
-                {invoiceData.alamat && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{invoiceData.alamat}</div>}
                 {invoiceData.nota && <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Rujukan: <i>{invoiceData.nota}</i></div>}
               </div>
 
@@ -556,7 +542,7 @@ export default function App() {
                   {orderItems.map((item, idx) => (
                     <tr key={item.id} style={{ background: idx % 2 === 0 ? "#fff" : "#fdf8f0", borderBottom: "1px solid #eee" }}>
                       <td style={{ padding: "7px 10px", color: "#555" }}>{idx + 1}</td>
-                      <td style={{ padding: "7px 10px" }}>{item.category} — {item.name}</td>
+                      <td style={{ padding: "7px 10px" }}>{item.name === "Add-on" ? `${item.category} - Add-on` : item.name}</td>
                       <td style={{ padding: "7px 10px", textAlign: "center" }}>{item.qty}</td>
                       <td style={{ padding: "7px 10px", textAlign: "right" }}>RM {item.price.toFixed(2)}</td>
                       <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 600 }}>RM {(item.price * item.qty).toFixed(2)}</td>
